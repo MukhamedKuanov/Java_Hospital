@@ -5,43 +5,47 @@ import model.Doctor;
 import model.Nurse;
 import model.Patient;
 import exceptions.InvalidDataException;
-import java.sql.*;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+
 public class PersonDAO {
 
+
     public boolean insertPerson(Person person) {
-        String sql = "INSERT INTO people (name, age, gender, person_type, specialization, diagnosis) " +
-                "VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO people (person_id, name, age, gender, person_type, specialization, diagnosis) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         Connection connection = DatabaseConnection.getConnection();
         if (connection == null) return false;
 
-        try {
-            PreparedStatement statement = connection.prepareStatement(sql);
-            statement.setString(1, person.getName());
-            statement.setInt(2, person.getAge());
-            statement.setString(3, person.getGender());
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, person.getId());
+            statement.setString(2, person.getName());
+            statement.setInt(3, person.getAge());
+            statement.setString(4, person.getGender());
 
             if (person instanceof Doctor) {
-                statement.setString(4, "DOCTOR");
-                statement.setString(5, ((Doctor) person).getSpecialization());
-                statement.setString(6, null);
+                statement.setString(5, "DOCTOR");
+                statement.setString(6, ((Doctor) person).getSpecialization());
+                statement.setString(7, null);
             } else if (person instanceof Nurse) {
-                statement.setString(4, "NURSE");
-                statement.setString(5, null);
+                statement.setString(5, "NURSE");
                 statement.setString(6, null);
+                statement.setString(7, null);
             } else if (person instanceof Patient) {
-                statement.setString(4, "PATIENT");
-                statement.setString(5, null);
-                statement.setString(6, ((Patient) person).getDiagnosis());
+                statement.setString(5, "PATIENT");
+                statement.setString(6, null);
+                statement.setString(7, ((Patient) person).getDiagnosis());
             } else {
                 return false;
             }
 
-
             int rowsInserted = statement.executeUpdate();
-            statement.close();
 
             if (rowsInserted > 0) {
                 System.out.println(" Person added: " + person.getName());
@@ -56,6 +60,7 @@ public class PersonDAO {
         return false;
     }
 
+
     public List<Person> getAllPeople() {
         List<Person> people = new ArrayList<>();
         String sql = "SELECT * FROM people ORDER BY person_id";
@@ -63,27 +68,20 @@ public class PersonDAO {
         Connection connection = DatabaseConnection.getConnection();
         if (connection == null) return people;
 
-        try {
-            PreparedStatement statement = connection.prepareStatement(sql);
-            ResultSet resultSet = statement.executeQuery();
+        try (PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
 
             while (resultSet.next()) {
                 try {
                     Person person = extractPerson(resultSet);
                     if (person != null) people.add(person);
                 } catch (InvalidDataException e) {
-                    System.out.println("  Invalid data in DB: " + e.getMessage());
+                    System.out.println(" Invalid data: " + e.getMessage());
                 }
             }
 
-
-
-            resultSet.close();
-            statement.close();
-            System.out.println(" Retrieved " + people.size() + " people");
-
         } catch (SQLException e) {
-            System.out.println(" Select failed: " + e.getMessage());
+            System.out.println(" Error: " + e.getMessage());
         } finally {
             DatabaseConnection.closeConnection(connection);
         }
@@ -96,20 +94,14 @@ public class PersonDAO {
         Connection connection = DatabaseConnection.getConnection();
         if (connection == null) return null;
 
-        try {
-            PreparedStatement statement = connection.prepareStatement(sql);
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, id);
-            ResultSet resultSet = statement.executeQuery();
 
-            if (resultSet.next()) {
-                Person person = extractPerson(resultSet);
-                resultSet.close();
-                statement.close();
-                return person;
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return extractPerson(resultSet);
+                }
             }
-
-            resultSet.close();
-            statement.close();
 
         } catch (SQLException | InvalidDataException e) {
             System.out.println(" Get by ID failed: " + e.getMessage());
@@ -119,6 +111,7 @@ public class PersonDAO {
         return null;
     }
 
+
     public boolean updateDoctor(Doctor doctor) {
         String sql = "UPDATE people SET name = ?, age = ?, gender = ?, specialization = ? " +
                 "WHERE person_id = ? AND person_type = 'DOCTOR'";
@@ -126,8 +119,7 @@ public class PersonDAO {
         Connection connection = DatabaseConnection.getConnection();
         if (connection == null) return false;
 
-        try {
-            PreparedStatement statement = connection.prepareStatement(sql);
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, doctor.getName());
             statement.setInt(2, doctor.getAge());
             statement.setString(3, doctor.getGender());
@@ -135,7 +127,6 @@ public class PersonDAO {
             statement.setInt(5, doctor.getId());
 
             int rowsUpdated = statement.executeUpdate();
-            statement.close();
 
             if (rowsUpdated > 0) {
                 System.out.println(" Doctor updated: " + doctor.getName());
@@ -157,8 +148,7 @@ public class PersonDAO {
         Connection connection = DatabaseConnection.getConnection();
         if (connection == null) return false;
 
-        try {
-            PreparedStatement statement = connection.prepareStatement(sql);
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, patient.getName());
             statement.setInt(2, patient.getAge());
             statement.setString(3, patient.getGender());
@@ -166,13 +156,11 @@ public class PersonDAO {
             statement.setInt(5, patient.getId());
 
             int rowsUpdated = statement.executeUpdate();
-            statement.close();
 
             if (rowsUpdated > 0) {
                 System.out.println(" Patient updated: " + patient.getName());
                 return true;
             }
-
 
         } catch (SQLException e) {
             System.out.println(" Update patient failed: " + e.getMessage());
@@ -181,30 +169,32 @@ public class PersonDAO {
         }
         return false;
     }
+
     public boolean updateNurse(Nurse nurse) {
         String sql = "UPDATE people SET name = ?, age = ?, gender = ? " +
                 "WHERE person_id = ? AND person_type = 'NURSE'";
+
         Connection connection = DatabaseConnection.getConnection();
         if (connection == null) return false;
-        try {
-            PreparedStatement statement = connection.prepareStatement(sql);
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, nurse.getName());
             statement.setInt(2, nurse.getAge());
             statement.setString(3, nurse.getGender());
             statement.setInt(4, nurse.getId());
+
             int rowsUpdated = statement.executeUpdate();
-            statement.close();
+
             if (rowsUpdated > 0) {
-                System.out.println("Nurse updated: " + nurse.getName());
+                System.out.println(" Nurse updated: " + nurse.getName());
                 return true;
             }
 
         } catch (SQLException e) {
-            System.out.println("Update nurse failed: " + e.getMessage());
+            System.out.println(" Update nurse failed: " + e.getMessage());
         } finally {
             DatabaseConnection.closeConnection(connection);
         }
-
         return false;
     }
 
@@ -215,18 +205,15 @@ public class PersonDAO {
         Connection connection = DatabaseConnection.getConnection();
         if (connection == null) return false;
 
-        try {
-            PreparedStatement statement = connection.prepareStatement(sql);
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, personId);
 
             int rowsDeleted = statement.executeUpdate();
-            statement.close();
 
             if (rowsDeleted > 0) {
                 System.out.println(" Person deleted (ID: " + personId + ")");
                 return true;
             }
-
 
         } catch (SQLException e) {
             System.out.println(" Delete failed: " + e.getMessage());
@@ -244,26 +231,54 @@ public class PersonDAO {
         Connection connection = DatabaseConnection.getConnection();
         if (connection == null) return people;
 
-        try {
-            PreparedStatement statement = connection.prepareStatement(sql);
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, "%" + name + "%");
-            ResultSet resultSet = statement.executeQuery();
 
-            while (resultSet.next()) {
-                try {
-                    Person person = extractPerson(resultSet);
-                    if (person != null) people.add(person);
-                } catch (InvalidDataException e) {
-                    System.out.println("  Invalid data: " + e.getMessage());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    try {
+                        Person person = extractPerson(resultSet);
+                        if (person != null) people.add(person);
+                    } catch (InvalidDataException e) {
+                        System.out.println(" Invalid data: " + e.getMessage());
+                    }
                 }
             }
-
-            resultSet.close();
-            statement.close();
             System.out.println(" Found " + people.size() + " people matching '" + name + "'");
 
         } catch (SQLException e) {
             System.out.println(" Search failed: " + e.getMessage());
+        } finally {
+            DatabaseConnection.closeConnection(connection);
+        }
+        return people;
+    }
+
+    public List<Person> searchByAgeRange(int minAge, int maxAge) {
+        List<Person> people = new ArrayList<>();
+        String sql = "SELECT * FROM people WHERE age BETWEEN ? AND ? ORDER BY age";
+
+        Connection connection = DatabaseConnection.getConnection();
+        if (connection == null) return people;
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, minAge);
+            statement.setInt(2, maxAge);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    try {
+                        Person person = extractPerson(resultSet);
+                        if (person != null) people.add(person);
+                    } catch (InvalidDataException e) {
+                        System.out.println(" Invalid data: " + e.getMessage());
+                    }
+                }
+            }
+            System.out.println(" Found " + people.size() + " people aged " + minAge + "-" + maxAge);
+
+        } catch (SQLException e) {
+            System.out.println(" Age search failed: " + e.getMessage());
         } finally {
             DatabaseConnection.closeConnection(connection);
         }
@@ -277,25 +292,21 @@ public class PersonDAO {
         Connection connection = DatabaseConnection.getConnection();
         if (connection == null) return doctors;
 
-
-        try {
-            PreparedStatement statement = connection.prepareStatement(sql);
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, "%" + specialization + "%");
-            ResultSet resultSet = statement.executeQuery();
 
-            while (resultSet.next()) {
-                try {
-                    Person person = extractPerson(resultSet);
-                    if (person instanceof Doctor) {
-                        doctors.add((Doctor) person);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    try {
+                        Person person = extractPerson(resultSet);
+                        if (person instanceof Doctor) {
+                            doctors.add((Doctor) person);
+                        }
+                    } catch (InvalidDataException e) {
+                        System.out.println(" Invalid data: " + e.getMessage());
                     }
-                } catch (InvalidDataException e) {
-                    System.out.println("️ Invalid data: " + e.getMessage());
                 }
             }
-
-            resultSet.close();
-            statement.close();
             System.out.println(" Found " + doctors.size() + " doctors with specialization '" + specialization + "'");
 
         } catch (SQLException e) {
@@ -305,40 +316,6 @@ public class PersonDAO {
         }
         return doctors;
     }
-
-    public List<Person> searchByAgeRange(int minAge, int maxAge) {
-        List<Person> people = new ArrayList<>();
-        String sql = "SELECT * FROM people WHERE age BETWEEN ? AND ? ORDER BY age";
-
-        Connection connection = DatabaseConnection.getConnection();
-        if (connection == null) return people;
-
-        try {
-            PreparedStatement statement = connection.prepareStatement(sql);
-            statement.setInt(1, minAge);
-            statement.setInt(2, maxAge);
-            ResultSet resultSet = statement.executeQuery();
-
-            while (resultSet.next()) {
-                try {
-                    Person person = extractPerson(resultSet);
-                    if (person != null) people.add(person);
-                } catch (InvalidDataException e) {
-                    System.out.println("️ Invalid data: " + e.getMessage());
-                }
-            }
-
-            resultSet.close();
-            statement.close();
-
-        } catch (SQLException e) {
-            System.out.println(" Age search failed: " + e.getMessage());
-        } finally {
-            DatabaseConnection.closeConnection(connection);
-        }
-        return people;
-    }
-
 
     private Person extractPerson(ResultSet rs) throws SQLException, InvalidDataException {
         int id = rs.getInt("person_id");
@@ -370,9 +347,7 @@ public class PersonDAO {
 
     public List<Doctor> getAllDoctors() {
         List<Doctor> doctors = new ArrayList<>();
-        List<Person> people = getAllPeople();
-
-        for (Person p : people) {
+        for (Person p : getAllPeople()) {
             if (p instanceof Doctor) {
                 doctors.add((Doctor) p);
             }
@@ -382,9 +357,7 @@ public class PersonDAO {
 
     public List<Patient> getAllPatients() {
         List<Patient> patients = new ArrayList<>();
-        List<Person> people = getAllPeople();
-
-        for (Person p : people) {
+        for (Person p : getAllPeople()) {
             if (p instanceof Patient) {
                 patients.add((Patient) p);
             }
@@ -392,12 +365,9 @@ public class PersonDAO {
         return patients;
     }
 
-
     public List<Nurse> getAllNurses() {
         List<Nurse> nurses = new ArrayList<>();
-        List<Person> people = getAllPeople();
-
-        for (Person p : people) {
+        for (Person p : getAllPeople()) {
             if (p instanceof Nurse) {
                 nurses.add((Nurse) p);
             }
