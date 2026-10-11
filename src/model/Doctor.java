@@ -21,6 +21,7 @@ public class Doctor extends Person {
         System.out.println("Doctor " + name + " is treating patients");
     }
 
+
     @Override
     public String toString() {
         return super.toString() + ", Specialization: " + specialization;

@@ -9,6 +9,7 @@ public class Nurse extends Person {
         super(id, name, age, gender);
     }
 
+
     @Override
     public void doWork() {
         System.out.println("Nurse " + name + " is helping patients");

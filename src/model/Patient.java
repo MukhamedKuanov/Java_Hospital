@@ -21,6 +21,8 @@ public class Patient extends Person {
         System.out.println("Patient " + name + " is resting");
     }
 
+
+
     @Override
     public String toString() {
         return super.toString() + ", Diagnosis: " + diagnosis;

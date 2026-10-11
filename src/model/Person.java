@@ -36,6 +36,7 @@ public abstract class Person implements Worker, Printable {
     public void setName(String name) { this.name = name; }
     public void setAge(int age) { this.age = age; }
 
+
     @Override
     public void showInfo() {
         System.out.println(this);
