@@ -48,7 +48,7 @@ public class PersonDAO {
             int rowsInserted = statement.executeUpdate();
 
             if (rowsInserted > 0) {
-                System.out.println(" Person added: " + person.getName());
+                System.out.println("Person added: " + person.getName());
                 return true;
             }
 

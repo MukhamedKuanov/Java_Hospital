@@ -107,6 +107,7 @@ public class HospitalMenu implements Menu {
                     person = new Nurse(id, name, age, gender);
                 }
                 case 3 -> {
+
                     System.out.print("Diagnosis: ");
                     String diagnosis = scanner.nextLine();
                     person = new Patient(id, name, age, gender, diagnosis);

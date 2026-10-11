@@ -6,4 +6,5 @@ public class Main {
         Menu menu = new HospitalMenu();
         menu.run();
     }
+
 }
